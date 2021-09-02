@@ -143,13 +143,20 @@ static TString *loadString (LoadState *S, Proto *p) {
 
 static void loadCode (LoadState *S, Proto *f) {
   int n = loadInt(S);
-  f->code = luaM_newvectorchecked(S->L, n, Instruction);
-  f->sizecode = n;
-  loadVector(S, f->code, n);
+  if (f->is_const) {
+    f->sizecode = n;
+    f->code = (Instruction *)S->Z->p;
+    S->Z->n -= n * sizeof(Instruction);
+    S->Z->p += n * sizeof(Instruction);
+  } else {
+    f->code = luaM_newvectorchecked(S->L, n, Instruction);
+    f->sizecode = n;
+    loadVector(S, f->code, n);
+  }
 }
 
 
-static void loadFunction(LoadState *S, Proto *f, TString *psource);
+static void loadFunction(LoadState *S, Proto *f, TString *psource, lu_byte is_const);
 
 
 static void loadConstants (LoadState *S, Proto *f) {
@@ -198,7 +205,7 @@ static void loadProtos (LoadState *S, Proto *f) {
   for (i = 0; i < n; i++) {
     f->p[i] = luaF_newproto(S->L);
     luaC_objbarrier(S->L, f, f->p[i]);
-    loadFunction(S, f->p[i], f->source);
+    loadFunction(S, f->p[i], f->source, f->is_const);
   }
 }
 
@@ -253,7 +260,8 @@ static void loadDebug (LoadState *S, Proto *f) {
 }
 
 
-static void loadFunction (LoadState *S, Proto *f, TString *psource) {
+static void loadFunction (LoadState *S, Proto *f, TString *psource, lu_byte is_const) {
+  f->is_const = is_const;
   f->source = loadStringN(S, f);
   if (f->source == NULL)  /* no source in dump? */
     f->source = psource;  /* reuse parent's source */
@@ -308,7 +316,7 @@ static void checkHeader (LoadState *S) {
 /*
 ** Load precompiled chunk.
 */
-LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
+LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name, lu_byte is_const) {
   LoadState S;
   LClosure *cl;
   if (*name == '@' || *name == '=')
@@ -325,7 +333,7 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   luaD_inctop(L);
   cl->p = luaF_newproto(L);
   luaC_objbarrier(L, cl, cl->p);
-  loadFunction(&S, cl->p, NULL);
+  loadFunction(&S, cl->p, NULL, is_const);
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, cl->p);
   return cl;
