@@ -654,6 +654,23 @@ static void findloader (lua_State *L, const char *name) {
 }
 
 
+static int finshrequire (lua_State *L, int status, lua_KContext extra) {
+  const char *name = (const char *)extra;
+  /* stack: ...; loader data; result from loader */
+  if (!lua_isnil(L, -1))  /* non-nil return? */
+    lua_setfield(L, 2, name);  /* LOADED[name] = returned value */
+  else
+    lua_pop(L, 1);  /* pop nil */
+  if (lua_getfield(L, 2, name) == LUA_TNIL) {   /* module set no value? */
+    lua_pushboolean(L, 1);  /* use true as result */
+    lua_copy(L, -1, -2);  /* replace loader result */
+    lua_setfield(L, 2, name);  /* LOADED[name] = true */
+  }
+  lua_rotate(L, -2, 1);  /* loader data <-> module result  */
+  return 2;  /* return module result and loader data */
+}
+
+
 static int ll_require (lua_State *L) {
   const char *name = luaL_checkstring(L, 1);
   lua_settop(L, 1);  /* LOADED table will be at index 2 */
@@ -668,19 +685,8 @@ static int ll_require (lua_State *L) {
   lua_pushvalue(L, 1);  /* name is 1st argument to module loader */
   lua_pushvalue(L, -3);  /* loader data is 2nd argument */
   /* stack: ...; loader data; loader function; mod. name; loader data */
-  lua_call(L, 2, 1);  /* run loader to load module */
-  /* stack: ...; loader data; result from loader */
-  if (!lua_isnil(L, -1))  /* non-nil return? */
-    lua_setfield(L, 2, name);  /* LOADED[name] = returned value */
-  else
-    lua_pop(L, 1);  /* pop nil */
-  if (lua_getfield(L, 2, name) == LUA_TNIL) {   /* module set no value? */
-    lua_pushboolean(L, 1);  /* use true as result */
-    lua_copy(L, -1, -2);  /* replace loader result */
-    lua_setfield(L, 2, name);  /* LOADED[name] = true */
-  }
-  lua_rotate(L, -2, 1);  /* loader data <-> module result  */
-  return 2;  /* return module result and loader data */
+  lua_callk(L, 2, 1, (lua_KContext)name, finshrequire);  /* run loader to load module */
+  return finshrequire(L, 0, (lua_KContext)name);
 }
 
 /* }====================================================== */
