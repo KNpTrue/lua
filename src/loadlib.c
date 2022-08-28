@@ -654,7 +654,7 @@ static void findloader (lua_State *L, const char *name) {
 }
 
 
-static int finshrequire (lua_State *L, int status, lua_KContext extra) {
+static int finishrequire (lua_State *L, int status, lua_KContext extra) {
   const char *name = (const char *)extra;
   /* stack: ...; loader data; result from loader */
   if (!lua_isnil(L, -1))  /* non-nil return? */
@@ -685,8 +685,8 @@ static int ll_require (lua_State *L) {
   lua_pushvalue(L, 1);  /* name is 1st argument to module loader */
   lua_pushvalue(L, -3);  /* loader data is 2nd argument */
   /* stack: ...; loader data; loader function; mod. name; loader data */
-  lua_callk(L, 2, 1, (lua_KContext)name, finshrequire);  /* run loader to load module */
-  return finshrequire(L, 0, (lua_KContext)name);
+  lua_callk(L, 2, 1, (lua_KContext)name, finishrequire);  /* run loader to load module */
+  return finishrequire(L, 0, (lua_KContext)name);
 }
 
 /* }====================================================== */
