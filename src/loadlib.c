@@ -655,6 +655,7 @@ static void findloader (lua_State *L, const char *name) {
 
 
 static int finishrequire (lua_State *L, int status, lua_KContext extra) {
+  (void)(status); /* not used */
   const char *name = (const char *)extra;
   /* stack: ...; loader data; result from loader */
   if (!lua_isnil(L, -1))  /* non-nil return? */
